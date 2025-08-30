@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   static const String baseUrl = 'https://ahamai-api.officialprakashkrsingh.workers.dev';
+  static int _currentBraveApiKeyIndex = 0;
+  static DateTime _lastKeyRotation = DateTime.now();
+  
   static Map<String, String> get headers {
     final apiKey = dotenv.env['API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
@@ -15,6 +18,41 @@ class ApiService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $apiKey',
     };
+  }
+
+  /// Get Brave Search API keys from environment and rotate them
+  static List<String> get _braveApiKeys {
+    final keysString = dotenv.env['BRAVE_API_KEYS'] ?? '';
+    if (keysString.isEmpty) {
+      throw Exception('BRAVE_API_KEYS not found in environment variables.');
+    }
+    return keysString.split(',').where((key) => key.trim().isNotEmpty).toList();
+  }
+
+  /// Get current Brave API key with rotation logic
+  static String _getCurrentBraveApiKey() {
+    final keys = _braveApiKeys;
+    if (keys.isEmpty) {
+      throw Exception('No Brave API keys available.');
+    }
+    
+    // Rotate key every 5 minutes or on error
+    final now = DateTime.now();
+    if (now.difference(_lastKeyRotation).inMinutes >= 5) {
+      _rotateBraveApiKey();
+    }
+    
+    return keys[_currentBraveApiKeyIndex % keys.length];
+  }
+
+  /// Rotate to next Brave API key
+  static void _rotateBraveApiKey() {
+    final keys = _braveApiKeys;
+    if (keys.isNotEmpty) {
+      _currentBraveApiKeyIndex = (_currentBraveApiKeyIndex + 1) % keys.length;
+      _lastKeyRotation = DateTime.now();
+      print('Rotated to Brave API key index: $_currentBraveApiKeyIndex');
+    }
   }
 
   // Get available models
@@ -91,17 +129,17 @@ class ApiService {
             'type': 'function',
             'function': {
               'name': 'generate_image',
-              'description': 'Generate an image based on a user prompt. Use this when the user asks to create, draw, or generate a picture, image, or art.',
+              'description': 'Generate, create, draw, or make any type of image, photo, artwork, diagram, or visual content based on a user prompt. Use this whenever users ask for visual content, images, pictures, drawings, artwork, photos, designs, or any visual representation.',
               'parameters': {
                 'type': 'object',
                 'properties': {
                   'prompt': {
                     'type': 'string',
-                    'description': 'A detailed description of the image to generate.',
+                    'description': 'A detailed description of the image to generate, including style, colors, composition, and any specific details.',
                   },
                   'model': {
                     'type': 'string',
-                    'description': 'The specific model to use for generation, if the user requests one.',
+                    'description': 'The specific model to use for generation, if the user requests one (e.g., "DALL-E", "Stable Diffusion", "Midjourney").',
                   }
                 },
                 'required': ['prompt'],
@@ -111,14 +149,31 @@ class ApiService {
           {
             'type': 'function',
             'function': {
+              'name': 'website_browser',
+              'description': 'Browse, access, and analyze content from any website, URL, or web page. Use this when users mention URLs, ask about websites, need current information from the web, want to check a specific site, or need real-time data from the internet.',
+              'parameters': {
+                'type': 'object',
+                'properties': {
+                  'url': {
+                    'type': 'string',
+                    'description': 'The complete URL of the website to browse and analyze (e.g., "https://example.com").',
+                  }
+                },
+                'required': ['url'],
+              },
+            }
+          },
+          {
+            'type': 'function',
+            'function': {
               'name': 'web_search',
-              'description': 'Search the web for up-to-date information on a topic, including news and images.',
+              'description': 'Search the web for current information, news, facts, or any query that requires up-to-date information from the internet. Use this when users ask questions that need current information, want to search for something, or need recent data.',
               'parameters': {
                 'type': 'object',
                 'properties': {
                   'query': {
                     'type': 'string',
-                    'description': 'The search query or topic.',
+                    'description': 'The search query to find information on the web.',
                   }
                 },
                 'required': ['query'],
@@ -128,6 +183,8 @@ class ApiService {
         ]
       };
 
+      print('🔧 API: Sending request with ${(requestBody['tools'] as List?)?.length ?? 0} tools available');
+      
       final request = http.Request(
         'POST',
         Uri.parse('$baseUrl/v1/chat/completions'),
@@ -170,6 +227,7 @@ class ApiService {
                 // The API is asking to use a tool.
                 // We'll encode this as a special string and handle it on the client.
                 final toolCalls = jsonEncode(delta['tool_calls']);
+                print('🔧 API: Tool call detected in response: $toolCalls');
                 controller.add('__TOOL_CALL__$toolCalls');
               }
             } catch (e) {
@@ -192,7 +250,7 @@ class ApiService {
   // Generate image (if supported by your API)
   static Future<String?> generateImage({
     required String prompt,
-    String model = 'flux',
+    required String model,
   }) async {
     try {
       final response = await http.post(
@@ -213,5 +271,83 @@ class ApiService {
     } catch (e) {
       return null;
     }
+  }
+
+  // Web browser function
+  static Future<String?> browseWebsite({
+    required String url,
+  }) async {
+    try {
+      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$url';
+      final response = await http.get(
+        Uri.parse(scraperUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Web search function with Brave Search API
+  static Future<Map<String, dynamic>?> searchWeb({
+    required String query,
+  }) async {
+    int attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        final apiKey = _getCurrentBraveApiKey();
+        final url = 'https://api.search.brave.com/res/v1/web/search?q=${Uri.encodeComponent(query)}&count=25';
+        
+        final response = await http.get(
+          Uri.parse(url),
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'X-Subscription-Token': apiKey,
+          },
+        ).timeout(const Duration(seconds: 30));
+
+        print('Brave Search API response status: ${response.statusCode}');
+        
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return data;
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          // API key error - rotate and try again
+          print('API key error (${response.statusCode}), rotating key...');
+          _rotateBraveApiKey();
+          attempts++;
+          continue;
+        } else if (response.statusCode == 429) {
+          // Rate limit - rotate key and try again
+          print('Rate limit hit (${response.statusCode}), rotating key...');
+          _rotateBraveApiKey();
+          attempts++;
+          await Future.delayed(Duration(seconds: 1 * attempts)); // Progressive delay
+          continue;
+        } else {
+          print('Brave Search API error: ${response.statusCode} - ${response.body}');
+          return null;
+        }
+      } catch (e) {
+        print('Brave Search API exception: $e');
+        attempts++;
+        if (attempts < maxAttempts) {
+          _rotateBraveApiKey();
+          await Future.delayed(Duration(seconds: 1 * attempts));
+        }
+      }
+    }
+    
+    return null;
   }
 }

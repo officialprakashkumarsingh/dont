@@ -23,12 +23,14 @@ class ChartService {
             align-items: center;
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: auto;
         }
         #chartContainer {
             position: relative;
             width: 90vw;
             max-width: 800px;
             height: 500px;
+            overflow: auto;
         }
         canvas {
             max-width: 100%;

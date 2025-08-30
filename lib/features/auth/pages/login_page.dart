@@ -220,18 +220,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                             text: TextSpan(
                               children: [
                                 TextSpan(
-                                  text: 'अहम्',
-                                  style: GoogleFonts.poppins(
+                                  text: 'AhamAI',
+                                  style: GoogleFonts.amaranth(
                                     fontSize: 36,
                                     fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onBackground,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: 'AI',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w700,
                                     color: theme.colorScheme.primary,
                                   ),
                                 ),

@@ -1290,8 +1290,8 @@ class _AboutBottomSheetState extends State<_AboutBottomSheet> {
                             text: TextSpan(
                               children: [
                                 TextSpan(
-                                  text: 'अ',
-                                  style: GoogleFonts.poppins(
+                                  text: 'A',
+                                  style: GoogleFonts.amaranth(
                                     fontSize: 32,
                                     fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.primary,
@@ -1307,18 +1307,10 @@ class _AboutBottomSheetState extends State<_AboutBottomSheet> {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: 'अहम्',
-                              style: GoogleFonts.poppins(
+                              text: 'AhamAI',
+                              style: GoogleFonts.amaranth(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'AI',
-                              style: GoogleFonts.inter(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w700,
                                 color: theme.colorScheme.primary,
                               ),
                             ),

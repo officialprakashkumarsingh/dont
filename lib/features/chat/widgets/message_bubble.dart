@@ -28,6 +28,7 @@ import '../../../shared/widgets/presentation_preview.dart';
 import '../../../shared/widgets/chart_preview.dart';
 import '../../../shared/widgets/flashcard_preview.dart';
 import '../../../shared/widgets/quiz_preview.dart';
+import '../../../theme/providers/theme_provider.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -289,9 +290,7 @@ class _MessageBubbleState extends State<MessageBubble>
             decoration: (isUser && widget.message is! VisionMessage)
                 ? BoxDecoration(
                     color: _getBubbleColor(context, isUser, hasError),
-                    borderRadius: BorderRadius.circular(16).copyWith(
-                      bottomRight: const Radius.circular(4),
-                    ),
+                    borderRadius: BorderRadius.circular(16),
                     border: hasError
                         ? Border.all(
                             color: Theme.of(context).colorScheme.error.withOpacity(0.3),
@@ -326,6 +325,7 @@ class _MessageBubbleState extends State<MessageBubble>
                     content: widget.message.content,
                     isUser: isUser,
                     isStreaming: isStreaming,
+                    textColor: isUser ? _getTextColor(context, isUser, hasError) : null,
                   ),
                 ],
                 
@@ -434,6 +434,29 @@ class _MessageBubbleState extends State<MessageBubble>
       return Theme.of(context).colorScheme.error.withOpacity(0.1);
     }
     if (isUser) {
+      // Get theme provider to check if we're using midnight theme
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final isMidnightTheme = themeProvider.selectedTheme.name == 'midnight';
+      final isDark = themeProvider.isDarkMode;
+      
+      // For midnight theme specifically
+      if (isMidnightTheme) {
+        if (isDark) {
+          // Midnight dark mode: white bubble
+          return Colors.white;
+        } else {
+          // Midnight light mode: grey bubble
+          return Colors.grey.withOpacity(0.3);
+        }
+      }
+      
+      // For default theme in dark mode (which uses midnight dark theme)
+      final isDefaultTheme = themeProvider.selectedTheme.name == 'default';
+      if (isDefaultTheme && isDark) {
+        return Theme.of(context).colorScheme.primary.withOpacity(0.1);
+      }
+      
+      // For all other themes, use the primary color
       return Theme.of(context).colorScheme.primary;
     }
     return Theme.of(context).colorScheme.surfaceVariant;
@@ -444,6 +467,29 @@ class _MessageBubbleState extends State<MessageBubble>
       return Theme.of(context).colorScheme.error;
     }
     if (isUser) {
+      // Get theme provider to check if we're using midnight theme
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final isMidnightTheme = themeProvider.selectedTheme.name == 'midnight';
+      final isDark = themeProvider.isDarkMode;
+      
+      // For midnight theme specifically
+      if (isMidnightTheme) {
+        if (isDark) {
+          // Midnight dark mode: dark text on white bubble
+          return Colors.black87;
+        } else {
+          // Midnight light mode: dark text on grey bubble
+          return Colors.black87;
+        }
+      }
+      
+      // For default theme in dark mode (which uses midnight dark theme)
+      final isDefaultTheme = themeProvider.selectedTheme.name == 'default';
+      if (isDefaultTheme && isDark) {
+        return Theme.of(context).colorScheme.onSurface;
+      }
+      
+      // For all other themes, use onPrimary color
       return Theme.of(context).colorScheme.onPrimary;
     }
     return Theme.of(context).colorScheme.onSurfaceVariant;
@@ -1213,18 +1259,10 @@ class _ExportMessageWidget extends StatelessWidget {
                   text: TextSpan(
                     children: [
                       TextSpan(
-                        text: 'अहम्',
-                        style: GoogleFonts.poppins(
+                        text: 'AhamAI',
+                        style: GoogleFonts.amaranth(
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onBackground,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'AI',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
                           color: theme.colorScheme.primary,
                         ),
                       ),

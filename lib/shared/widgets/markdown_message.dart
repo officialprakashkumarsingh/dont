@@ -16,12 +16,14 @@ class MarkdownMessage extends StatelessWidget {
   final String content;
   final bool isUser;
   final bool isStreaming;
+  final Color? textColor;
 
   const MarkdownMessage({
     super.key,
     required this.content,
     this.isUser = false,
     this.isStreaming = false,
+    this.textColor,
   });
 
   @override
@@ -31,7 +33,7 @@ class MarkdownMessage extends StatelessWidget {
       return SelectableText(
         content,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onPrimary,
+          color: textColor ?? Theme.of(context).colorScheme.onPrimary,
           height: 1.4,
         ),
       );
