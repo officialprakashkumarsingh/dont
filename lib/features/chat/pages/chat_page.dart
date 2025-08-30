@@ -749,140 +749,57 @@ class _ChatPageState extends State<ChatPage> {
           print('Tool call JSON: $toolCallJson');
           
           try {
-            final toolCalls = jsonDecode(toolCallJson) as List;
-            final toolCall = toolCalls.first; // Assuming one tool call for now
+            // Improved JSON parsing with better error handling
+            final toolCallData = jsonDecode(toolCallJson);
+            List<dynamic> toolCalls;
+            
+            // Handle both array and single object format
+            if (toolCallData is List) {
+              toolCalls = toolCallData;
+            } else if (toolCallData is Map) {
+              toolCalls = [toolCallData];
+            } else {
+              throw Exception('Invalid tool call format: expected List or Map, got ${toolCallData.runtimeType}');
+            }
+            
+            if (toolCalls.isEmpty) {
+              throw Exception('No tool calls found in data');
+            }
+            
+            final toolCall = toolCalls.first; // Process first tool call
             final functionCall = toolCall['function'];
+            if (functionCall == null) {
+              throw Exception('Missing function data in tool call');
+            }
+            
             final functionName = functionCall['name'];
-            final arguments = jsonDecode(functionCall['arguments']);
+            if (functionName == null || functionName.isEmpty) {
+              throw Exception('Missing or empty function name');
+            }
+            
+            // Parse arguments with better error handling
+            dynamic arguments;
+            try {
+              if (functionCall['arguments'] is String) {
+                arguments = jsonDecode(functionCall['arguments']);
+              } else {
+                arguments = functionCall['arguments'];
+              }
+            } catch (e) {
+              throw Exception('Failed to parse function arguments: $e');
+            }
             
             print('Function name: $functionName');
             print('Arguments: $arguments');
 
-            // --- HANDLE TOOL CALLS ---
-            if (functionName == 'generate_image') {
-            final prompt = arguments['prompt'] as String;
-            final imageService = ImageService.instance;
+            // Enhanced tool call execution with proper error handling
+            await _executeToolCall(functionName, arguments, messageIndex);
             
-            // Ensure models are loaded
-            await imageService.loadModels();
-            
-            // Select model: user-specified > selected model > first available model
-            String? model = arguments['model'] as String?;
-            if (model == null || model.isEmpty) {
-              model = imageService.selectedModel;
-              if (model.isEmpty && imageService.hasModels) {
-                model = imageService.availableModels.first.id;
-              }
-            }
-            
-            // Validate model exists or use first available
-            if (!imageService.availableModels.any((m) => m.id == model)) {
-              if (imageService.hasModels) {
-                model = imageService.availableModels.first.id;
-              } else {
-                // No models available, show error
-                final errorMessage = ImageMessage.error(
-                  prompt,
-                  'unknown',
-                  'No image generation models available'
-                );
-                setState(() {
-                  _messages[messageIndex] = errorMessage;
-                  _isLoading = false;
-                });
-                break;
-              }
-            }
-
-            // Update the "thinking" message to an image generating message with proper UI
-            final generatingMessage = ImageMessage.generating(prompt, model!);
-            setState(() {
-              _messages[messageIndex] = generatingMessage;
-            });
-
-            // Use the same image generation logic as the extension sheet
-            await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
-            
-            // Set loading to false after image generation completes
-            setState(() {
-              _isLoading = false;
-            });
-
-          } else if (functionName == 'website_browser') {
-            final url = arguments['url'] as String;
-            
-            // Update the message to show website browsing in progress
-            setState(() {
-              _messages[messageIndex] = _messages[messageIndex].copyWith(
-                content: '🌐 Browsing website: $url\n\nPlease wait...',
-              );
-            });
-
-            try {
-              final websiteContent = await ApiService.browseWebsite(url: url);
-              
-              if (websiteContent != null && websiteContent.isNotEmpty) {
-                // Process the website content and provide a response
-                final analysisPrompt = 'Please analyze and summarize the following website content from $url:\n\n$websiteContent';
-                
-                // Send the website content for analysis
-                final analysisStream = await ApiService.sendMessage(
-                  message: analysisPrompt,
-                  model: ModelService.instance.selectedModel,
-                  conversationHistory: [],
-                  systemPrompt: 'You are analyzing website content. Provide a clear, structured summary and analysis of the content.',
-                );
-
-                String analysisResult = '🌐 **Website Analysis: $url**\n\n';
-                
-                await for (final chunk in analysisStream) {
-                  if (chunk.startsWith('__TOOL_CALL__')) {
-                    // Skip nested tool calls in analysis
-                    break;
-                  }
-                  analysisResult += chunk;
-                  
-                  if (mounted && messageIndex < _messages.length) {
-                    setState(() {
-                      _messages[messageIndex] = _messages[messageIndex].copyWith(
-                        content: analysisResult,
-                      );
-                    });
-                  }
-                }
-              } else {
-                setState(() {
-                  _messages[messageIndex] = _messages[messageIndex].copyWith(
-                    content: '❌ **Website Browsing Failed**\n\nUnable to browse content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
-                  );
-                });
-              }
-            } catch (e) {
-              setState(() {
-                _messages[messageIndex] = _messages[messageIndex].copyWith(
-                  content: '❌ **Website Browsing Error**\n\nFailed to browse: $url\n\nError: $e',
-                );
-              });
-            }
-            
-            // Set loading to false after website browsing completes
-            setState(() {
-              _isLoading = false;
-            });
-
-          } else {
-            // Unknown tool call, just continue with regular response
-            print('Unknown tool call: $functionName');
-            setState(() {
-              _isLoading = false;
-            });
-          }
-          
           } catch (toolCallError) {
             print('Error processing tool call: $toolCallError');
             setState(() {
               _messages[messageIndex] = _messages[messageIndex].copyWith(
-                content: '❌ **Tool Call Error**\n\nFailed to process tool call: $toolCallError',
+                content: '❌ **Tool Call Error**\n\nFailed to process tool call: $toolCallError\n\nPlease try rephrasing your request.',
                 hasError: true,
               );
               _isLoading = false;
@@ -1924,6 +1841,244 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
         }
       }
     }
+  }
+
+  /// Enhanced tool call execution with proper error handling and robust implementation
+  Future<void> _executeToolCall(String functionName, Map<String, dynamic> arguments, int messageIndex) async {
+    print('Executing tool call: $functionName with arguments: $arguments');
+    
+    try {
+      switch (functionName) {
+        case 'generate_image':
+          await _handleImageGenerationTool(arguments, messageIndex);
+          break;
+          
+        case 'website_browser':
+          await _handleWebsiteBrowserTool(arguments, messageIndex);
+          break;
+          
+        case 'web_search':
+          await _handleWebSearchTool(arguments, messageIndex);
+          break;
+          
+        default:
+          print('Unknown tool call: $functionName');
+          setState(() {
+            _messages[messageIndex] = _messages[messageIndex].copyWith(
+              content: '❌ **Unknown Tool**\n\nTool "$functionName" is not supported.\n\nAvailable tools: Image Generation, Website Browser, Web Search',
+              hasError: true,
+            );
+            _isLoading = false;
+          });
+      }
+    } catch (e) {
+      print('Error executing tool call $functionName: $e');
+      setState(() {
+        _messages[messageIndex] = _messages[messageIndex].copyWith(
+          content: '❌ **Tool Execution Error**\n\nFailed to execute $functionName: $e\n\nPlease try again.',
+          hasError: true,
+        );
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Handle image generation tool call
+  Future<void> _handleImageGenerationTool(Map<String, dynamic> arguments, int messageIndex) async {
+    final prompt = arguments['prompt'] as String? ?? '';
+    if (prompt.isEmpty) {
+      throw Exception('Image prompt is required');
+    }
+    
+    final imageService = ImageService.instance;
+    
+    // Ensure models are loaded
+    await imageService.loadModels();
+    
+    // Select model: user-specified > selected model > first available model
+    String? model = arguments['model'] as String?;
+    if (model == null || model.isEmpty) {
+      model = imageService.selectedModel;
+      if (model.isEmpty && imageService.hasModels) {
+        model = imageService.availableModels.first.id;
+      }
+    }
+    
+    // Validate model exists or use first available
+    if (!imageService.availableModels.any((m) => m.id == model)) {
+      if (imageService.hasModels) {
+        model = imageService.availableModels.first.id;
+      } else {
+        // No models available, show error
+        final errorMessage = ImageMessage.error(
+          prompt,
+          'unknown',
+          'No image generation models available'
+        );
+        setState(() {
+          _messages[messageIndex] = errorMessage;
+          _isLoading = false;
+        });
+        return;
+      }
+    }
+
+    // Update the "thinking" message to an image generating message with proper UI
+    final generatingMessage = ImageMessage.generating(prompt, model!);
+    setState(() {
+      _messages[messageIndex] = generatingMessage;
+    });
+
+    // Use the same image generation logic as the extension sheet
+    await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
+    
+    // Set loading to false after image generation completes
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  /// Handle website browser tool call
+  Future<void> _handleWebsiteBrowserTool(Map<String, dynamic> arguments, int messageIndex) async {
+    final url = arguments['url'] as String? ?? '';
+    if (url.isEmpty) {
+      throw Exception('Website URL is required');
+    }
+    
+    // Update the message to show website browsing in progress
+    setState(() {
+      _messages[messageIndex] = _messages[messageIndex].copyWith(
+        content: '🌐 Browsing website: $url\n\nPlease wait...',
+      );
+    });
+
+    try {
+      final websiteContent = await ApiService.browseWebsite(url: url);
+      
+      if (websiteContent != null && websiteContent.isNotEmpty) {
+        // Process the website content and provide a response
+        final analysisPrompt = 'Please analyze and summarize the following website content from $url:\n\n$websiteContent';
+        
+        // Send the website content for analysis
+        final analysisStream = await ApiService.sendMessage(
+          message: analysisPrompt,
+          model: ModelService.instance.selectedModel,
+          conversationHistory: [],
+          systemPrompt: 'You are analyzing website content. Provide a clear, structured summary and analysis of the content.',
+        );
+
+        String analysisResult = '🌐 **Website Analysis: $url**\n\n';
+        
+        await for (final chunk in analysisStream) {
+          if (chunk.startsWith('__TOOL_CALL__')) {
+            // Skip nested tool calls in analysis
+            break;
+          }
+          analysisResult += chunk;
+          
+          if (mounted && messageIndex < _messages.length) {
+            setState(() {
+              _messages[messageIndex] = _messages[messageIndex].copyWith(
+                content: analysisResult,
+              );
+            });
+          }
+        }
+      } else {
+        setState(() {
+          _messages[messageIndex] = _messages[messageIndex].copyWith(
+            content: '❌ **Website Browsing Failed**\n\nUnable to browse content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
+          );
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages[messageIndex] = _messages[messageIndex].copyWith(
+          content: '❌ **Website Browsing Error**\n\nFailed to browse: $url\n\nError: $e',
+        );
+      });
+    }
+    
+    // Set loading to false after website browsing completes
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  /// Handle web search tool call
+  Future<void> _handleWebSearchTool(Map<String, dynamic> arguments, int messageIndex) async {
+    final query = arguments['query'] as String? ?? '';
+    if (query.isEmpty) {
+      throw Exception('Search query is required');
+    }
+    
+    // Update the message to show web search in progress
+    setState(() {
+      _messages[messageIndex] = _messages[messageIndex].copyWith(
+        content: '🔍 Searching the web for: "$query"\n\nPlease wait...',
+      );
+    });
+
+    try {
+      final searchResults = await ApiService.searchWeb(query: query);
+      
+      if (searchResults != null && searchResults['web'] != null) {
+        final webResults = searchResults['web']['results'] as List;
+        
+        if (webResults.isNotEmpty) {
+          // Format search results
+          String formattedResults = '🔍 **Web Search Results for: "$query"**\n\n';
+          
+          for (int i = 0; i < webResults.length && i < 10; i++) {
+            final result = webResults[i];
+            final title = result['title'] ?? 'No title';
+            final url = result['url'] ?? '';
+            final description = result['description'] ?? 'No description available';
+            
+            formattedResults += '**${i + 1}. $title**\n';
+            formattedResults += '$description\n';
+            if (url.isNotEmpty) {
+              formattedResults += '🔗 $url\n';
+            }
+            formattedResults += '\n';
+          }
+          
+          // Add summary footer
+          final totalResults = searchResults['web']['total_results'] ?? 0;
+          formattedResults += '---\n';
+          formattedResults += '*Found $totalResults total results. Showing top ${webResults.length.clamp(0, 10)} results.*';
+          
+          setState(() {
+            _messages[messageIndex] = _messages[messageIndex].copyWith(
+              content: formattedResults,
+            );
+          });
+        } else {
+          setState(() {
+            _messages[messageIndex] = _messages[messageIndex].copyWith(
+              content: '🔍 **No Search Results**\n\nNo results found for: "$query"\n\nTry rephrasing your search query or using different keywords.',
+            );
+          });
+        }
+      } else {
+        setState(() {
+          _messages[messageIndex] = _messages[messageIndex].copyWith(
+            content: '❌ **Web Search Failed**\n\nUnable to search for: "$query"\n\nThe search service might be temporarily unavailable.',
+          );
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages[messageIndex] = _messages[messageIndex].copyWith(
+          content: '❌ **Web Search Error**\n\nFailed to search for: "$query"\n\nError: $e',
+        );
+      });
+    }
+    
+    // Set loading to false after web search completes
+    setState(() {
+      _isLoading = false;
+    });
   }
 
 }

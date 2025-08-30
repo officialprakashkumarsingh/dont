@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   static const String baseUrl = 'https://ahamai-api.officialprakashkrsingh.workers.dev';
+  static int _currentBraveApiKeyIndex = 0;
+  static DateTime _lastKeyRotation = DateTime.now();
+  
   static Map<String, String> get headers {
     final apiKey = dotenv.env['API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
@@ -15,6 +18,41 @@ class ApiService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $apiKey',
     };
+  }
+
+  /// Get Brave Search API keys from environment and rotate them
+  static List<String> get _braveApiKeys {
+    final keysString = dotenv.env['BRAVE_API_KEYS'] ?? '';
+    if (keysString.isEmpty) {
+      throw Exception('BRAVE_API_KEYS not found in environment variables.');
+    }
+    return keysString.split(',').where((key) => key.trim().isNotEmpty).toList();
+  }
+
+  /// Get current Brave API key with rotation logic
+  static String _getCurrentBraveApiKey() {
+    final keys = _braveApiKeys;
+    if (keys.isEmpty) {
+      throw Exception('No Brave API keys available.');
+    }
+    
+    // Rotate key every 5 minutes or on error
+    final now = DateTime.now();
+    if (now.difference(_lastKeyRotation).inMinutes >= 5) {
+      _rotateBraveApiKey();
+    }
+    
+    return keys[_currentBraveApiKeyIndex % keys.length];
+  }
+
+  /// Rotate to next Brave API key
+  static void _rotateBraveApiKey() {
+    final keys = _braveApiKeys;
+    if (keys.isNotEmpty) {
+      _currentBraveApiKeyIndex = (_currentBraveApiKeyIndex + 1) % keys.length;
+      _lastKeyRotation = DateTime.now();
+      print('Rotated to Brave API key index: $_currentBraveApiKeyIndex');
+    }
   }
 
   // Get available models
@@ -122,6 +160,23 @@ class ApiService {
                   }
                 },
                 'required': ['url'],
+              },
+            }
+          },
+          {
+            'type': 'function',
+            'function': {
+              'name': 'web_search',
+              'description': 'Search the web for current information, news, facts, or any query that requires up-to-date information from the internet. Use this when users ask questions that need current information, want to search for something, or need recent data.',
+              'parameters': {
+                'type': 'object',
+                'properties': {
+                  'query': {
+                    'type': 'string',
+                    'description': 'The search query to find information on the web.',
+                  }
+                },
+                'required': ['query'],
               },
             }
           }
@@ -235,5 +290,61 @@ class ApiService {
     } catch (e) {
       return null;
     }
+  }
+
+  // Web search function with Brave Search API
+  static Future<Map<String, dynamic>?> searchWeb({
+    required String query,
+  }) async {
+    int attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        final apiKey = _getCurrentBraveApiKey();
+        final url = 'https://api.search.brave.com/res/v1/web/search?q=${Uri.encodeComponent(query)}&count=25';
+        
+        final response = await http.get(
+          Uri.parse(url),
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'X-Subscription-Token': apiKey,
+          },
+        ).timeout(const Duration(seconds: 30));
+
+        print('Brave Search API response status: ${response.statusCode}');
+        
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return data;
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          // API key error - rotate and try again
+          print('API key error (${response.statusCode}), rotating key...');
+          _rotateBraveApiKey();
+          attempts++;
+          continue;
+        } else if (response.statusCode == 429) {
+          // Rate limit - rotate key and try again
+          print('Rate limit hit (${response.statusCode}), rotating key...');
+          _rotateBraveApiKey();
+          attempts++;
+          await Future.delayed(Duration(seconds: 1 * attempts)); // Progressive delay
+          continue;
+        } else {
+          print('Brave Search API error: ${response.statusCode} - ${response.body}');
+          return null;
+        }
+      } catch (e) {
+        print('Brave Search API exception: $e');
+        attempts++;
+        if (attempts < maxAttempts) {
+          _rotateBraveApiKey();
+          await Future.delayed(Duration(seconds: 1 * attempts));
+        }
+      }
+    }
+    
+    return null;
   }
 }
