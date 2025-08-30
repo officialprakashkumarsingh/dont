@@ -91,17 +91,17 @@ class ApiService {
             'type': 'function',
             'function': {
               'name': 'generate_image',
-              'description': 'Generate an image based on a user prompt. Use this when the user asks to create, draw, or generate a picture, image, or art.',
+              'description': 'Generate, create, draw, or make any type of image, photo, artwork, diagram, or visual content based on a user prompt. Use this whenever users ask for visual content, images, pictures, drawings, artwork, photos, designs, or any visual representation.',
               'parameters': {
                 'type': 'object',
                 'properties': {
                   'prompt': {
                     'type': 'string',
-                    'description': 'A detailed description of the image to generate.',
+                    'description': 'A detailed description of the image to generate, including style, colors, composition, and any specific details.',
                   },
                   'model': {
                     'type': 'string',
-                    'description': 'The specific model to use for generation, if the user requests one.',
+                    'description': 'The specific model to use for generation, if the user requests one (e.g., "DALL-E", "Stable Diffusion", "Midjourney").',
                   }
                 },
                 'required': ['prompt'],
@@ -111,14 +111,14 @@ class ApiService {
           {
             'type': 'function',
             'function': {
-              'name': 'web_scrape',
-              'description': 'Scrape and analyze content from any web page or URL. Use this to get detailed information from websites, articles, or web pages.',
+              'name': 'website_browser',
+              'description': 'Browse, access, and analyze content from any website, URL, or web page. Use this when users mention URLs, ask about websites, need current information from the web, want to check a specific site, or need real-time data from the internet.',
               'parameters': {
                 'type': 'object',
                 'properties': {
                   'url': {
                     'type': 'string',
-                    'description': 'The URL of the webpage to scrape and analyze.',
+                    'description': 'The complete URL of the website to browse and analyze (e.g., "https://example.com").',
                   }
                 },
                 'required': ['url'],
@@ -215,8 +215,8 @@ class ApiService {
     }
   }
 
-  // Web scraper function
-  static Future<String?> scrapeWebPage({
+  // Web browser function
+  static Future<String?> browseWebsite({
     required String url,
   }) async {
     try {

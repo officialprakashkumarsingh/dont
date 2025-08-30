@@ -740,17 +740,26 @@ class _ChatPageState extends State<ChatPage> {
       print('Starting to receive chunks for message at index: $messageIndex');
       
       await for (final chunk in stream) {
+        print('Received chunk: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...');
+        
         if (chunk.startsWith('__TOOL_CALL__')) {
+          print('Tool call detected! Processing...');
           // This is a tool call, not a text response.
           final toolCallJson = chunk.substring('__TOOL_CALL__'.length);
-          final toolCalls = jsonDecode(toolCallJson) as List;
-          final toolCall = toolCalls.first; // Assuming one tool call for now
-          final functionCall = toolCall['function'];
-          final functionName = functionCall['name'];
-          final arguments = jsonDecode(functionCall['arguments']);
+          print('Tool call JSON: $toolCallJson');
+          
+          try {
+            final toolCalls = jsonDecode(toolCallJson) as List;
+            final toolCall = toolCalls.first; // Assuming one tool call for now
+            final functionCall = toolCall['function'];
+            final functionName = functionCall['name'];
+            final arguments = jsonDecode(functionCall['arguments']);
+            
+            print('Function name: $functionName');
+            print('Arguments: $arguments');
 
-          // --- HANDLE TOOL CALLS ---
-          if (functionName == 'generate_image') {
+            // --- HANDLE TOOL CALLS ---
+            if (functionName == 'generate_image') {
             final prompt = arguments['prompt'] as String;
             final imageService = ImageService.instance;
             
@@ -785,39 +794,46 @@ class _ChatPageState extends State<ChatPage> {
               }
             }
 
-            // Update the "thinking" message to an image generating message
+            // Update the "thinking" message to an image generating message with proper UI
+            final generatingMessage = ImageMessage.generating(prompt, model!);
             setState(() {
-              _messages[messageIndex] = ImageMessage.generating(prompt, model!);
+              _messages[messageIndex] = generatingMessage;
             });
 
+            // Use the same image generation logic as the extension sheet
             await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
+            
+            // Set loading to false after image generation completes
+            setState(() {
+              _isLoading = false;
+            });
 
-          } else if (functionName == 'web_scrape') {
+          } else if (functionName == 'website_browser') {
             final url = arguments['url'] as String;
             
-            // Update the message to show web scraping in progress
+            // Update the message to show website browsing in progress
             setState(() {
               _messages[messageIndex] = _messages[messageIndex].copyWith(
-                content: '🔍 Scraping web page: $url\n\nPlease wait...',
+                content: '🌐 Browsing website: $url\n\nPlease wait...',
               );
             });
 
             try {
-              final scrapedContent = await ApiService.scrapeWebPage(url: url);
+              final websiteContent = await ApiService.browseWebsite(url: url);
               
-              if (scrapedContent != null && scrapedContent.isNotEmpty) {
-                // Process the scraped content and provide a response
-                final analysisPrompt = 'Please analyze and summarize the following web page content from $url:\n\n$scrapedContent';
+              if (websiteContent != null && websiteContent.isNotEmpty) {
+                // Process the website content and provide a response
+                final analysisPrompt = 'Please analyze and summarize the following website content from $url:\n\n$websiteContent';
                 
-                // Send the scraped content for analysis
+                // Send the website content for analysis
                 final analysisStream = await ApiService.sendMessage(
                   message: analysisPrompt,
                   model: ModelService.instance.selectedModel,
                   conversationHistory: [],
-                  systemPrompt: 'You are analyzing web page content. Provide a clear, structured summary and analysis of the content.',
+                  systemPrompt: 'You are analyzing website content. Provide a clear, structured summary and analysis of the content.',
                 );
 
-                String analysisResult = '📄 **Web Page Analysis: $url**\n\n';
+                String analysisResult = '🌐 **Website Analysis: $url**\n\n';
                 
                 await for (final chunk in analysisStream) {
                   if (chunk.startsWith('__TOOL_CALL__')) {
@@ -837,58 +853,84 @@ class _ChatPageState extends State<ChatPage> {
               } else {
                 setState(() {
                   _messages[messageIndex] = _messages[messageIndex].copyWith(
-                    content: '❌ **Web Scraping Failed**\n\nUnable to scrape content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
+                    content: '❌ **Website Browsing Failed**\n\nUnable to browse content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
                   );
                 });
               }
             } catch (e) {
               setState(() {
                 _messages[messageIndex] = _messages[messageIndex].copyWith(
-                  content: '❌ **Web Scraping Error**\n\nFailed to scrape: $url\n\nError: $e',
+                  content: '❌ **Website Browsing Error**\n\nFailed to browse: $url\n\nError: $e',
                 );
               });
             }
-          }
-          // Since a tool was called, we break the loop for this model's response.
-          break;
-        }
+            
+            // Set loading to false after website browsing completes
+            setState(() {
+              _isLoading = false;
+            });
 
-        accumulatedContent += chunk;
-        chunkCount++;
-        
-        if (chunkCount == 1) {
-          print('First chunk received: ${chunk.substring(0, chunk.length.clamp(0, 50))}...');
-        }
-        
-        if (mounted && messageIndex < _messages.length) {
-          setState(() {
-            _messages[messageIndex] = _messages[messageIndex].copyWith(
-              content: accumulatedContent,
-              isStreaming: true,
-            );
-          });
-        } else {
-          print('Warning: Cannot update message - mounted: $mounted, messageIndex: $messageIndex, messages.length: ${_messages.length}');
-        }
-        
-        // Smooth auto-scroll during streaming
-        if (chunkCount % 2 == 0) {
-          // Use next frame for smoother updates
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Only auto-scroll if user hasn't manually scrolled away
-            if (_autoScrollEnabled && _scrollController.hasClients && !_userIsScrolling) {
-              // Animate to bottom for a smoother feel than jumpTo
-              _scrollController.animateTo(
-                0.0,
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
+          } else {
+            // Unknown tool call, just continue with regular response
+            print('Unknown tool call: $functionName');
+            setState(() {
+              _isLoading = false;
+            });
+          }
+          
+          } catch (toolCallError) {
+            print('Error processing tool call: $toolCallError');
+            setState(() {
+              _messages[messageIndex] = _messages[messageIndex].copyWith(
+                content: '❌ **Tool Call Error**\n\nFailed to process tool call: $toolCallError',
+                hasError: true,
               );
-            }
-          });
+              _isLoading = false;
+            });
+          }
+          
+          // Exit the stream processing since we handled a tool call
+          break;
+
+        } else {
+          // Regular text chunk
+          accumulatedContent += chunk;
+          chunkCount++;
+          
+          if (chunkCount == 1) {
+            print('First chunk received: ${chunk.substring(0, chunk.length.clamp(0, 50))}...');
+          }
+          
+          if (mounted && messageIndex < _messages.length) {
+            setState(() {
+              _messages[messageIndex] = _messages[messageIndex].copyWith(
+                content: accumulatedContent,
+                isStreaming: true,
+              );
+            });
+          } else {
+            print('Warning: Cannot update message - mounted: $mounted, messageIndex: $messageIndex, messages.length: ${_messages.length}');
+          }
+          
+          // Smooth auto-scroll during streaming
+          if (chunkCount % 2 == 0) {
+            // Use next frame for smoother updates
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Only auto-scroll if user hasn't manually scrolled away
+              if (_autoScrollEnabled && _scrollController.hasClients && !_userIsScrolling) {
+                // Animate to bottom for a smoother feel than jumpTo
+                _scrollController.animateTo(
+                  0.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
       }
 
-      // Mark streaming as complete
+      // Mark streaming as complete for regular text responses
       print('Streaming complete. Total chunks: $chunkCount, Content length: ${accumulatedContent.length}');
       
       if (mounted && messageIndex < _messages.length) {
