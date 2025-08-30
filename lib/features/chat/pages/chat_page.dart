@@ -736,153 +736,115 @@ class _ChatPageState extends State<ChatPage> {
         accumulatedContent = '**${_formatModelName(model)}:**\n\n';
       }
       
-      int chunkCount = 0;
-      print('Starting to receive chunks for message at index: $messageIndex');
-      
-      await for (final chunk in stream) {
-        print('Received chunk: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...');
-        
-        if (chunk.startsWith('__TOOL_CALL__')) {
-          print('🔧 Tool call detected! Processing...');
-          // This is a tool call, not a text response.
-          final toolCallJson = chunk.substring('__TOOL_CALL__'.length);
-          print('🔧 Tool call JSON: $toolCallJson');
-          
-          try {
-            // Improved JSON parsing with better error handling
-            final toolCallData = jsonDecode(toolCallJson);
-            print('🔧 Parsed tool call data: $toolCallData');
-            
-            List<dynamic> toolCalls;
-            
-            // Handle both array and single object format
-            if (toolCallData is List) {
-              toolCalls = toolCallData;
-              print('🔧 Tool call data is a List with ${toolCalls.length} items');
-            } else if (toolCallData is Map) {
-              toolCalls = [toolCallData];
-              print('🔧 Tool call data is a Map, converted to List');
-            } else {
-              throw Exception('Invalid tool call format: expected List or Map, got ${toolCallData.runtimeType}');
+      String toolCallBuffer = '';
+      bool isParsingToolCall = false;
+      final completer = Completer<void>();
+
+      stream.listen(
+        (chunk) {
+          if (!isParsingToolCall && chunk.startsWith('__TOOL_CALL__')) {
+            isParsingToolCall = true;
+            print('🔧 Tool call stream started...');
+            toolCallBuffer += chunk.substring('__TOOL_CALL__'.length);
+          } else if (isParsingToolCall) {
+            toolCallBuffer += chunk;
+          } else {
+            accumulatedContent += chunk;
+            if (mounted && messageIndex < _messages.length) {
+              setState(() {
+                _messages[messageIndex] = _messages[messageIndex].copyWith(
+                  content: accumulatedContent,
+                  isStreaming: true,
+                );
+              });
             }
-            
-            if (toolCalls.isEmpty) {
-              throw Exception('No tool calls found in data');
-            }
-            
-            final toolCall = toolCalls.first; // Process first tool call
-            print('🔧 Processing first tool call: $toolCall');
-            
-            final functionCall = toolCall['function'];
-            if (functionCall == null) {
-              throw Exception('Missing function data in tool call');
-            }
-            
-            final functionName = functionCall['name'];
-            if (functionName == null || functionName.isEmpty) {
-              throw Exception('Missing or empty function name');
-            }
-            
-            print('🔧 Function name: $functionName');
-            
-            // Parse arguments with better error handling
-            dynamic arguments;
+          }
+        },
+        onDone: () {
+          if (isParsingToolCall) {
+            print('🔧 Tool call stream finished. Buffer: $toolCallBuffer');
             try {
-              if (functionCall['arguments'] is String) {
-                print('🔧 Arguments are string, parsing JSON...');
-                arguments = jsonDecode(functionCall['arguments']);
+              final toolCallData = jsonDecode(toolCallBuffer);
+
+              List<dynamic> toolCalls;
+              if (toolCallData is List) {
+                toolCalls = toolCallData;
+              } else if (toolCallData is Map) {
+                toolCalls = [toolCallData];
               } else {
-                print('🔧 Arguments are already parsed object');
-                arguments = functionCall['arguments'];
+                throw Exception('Invalid tool call format: Expected List or Map, got ${toolCallData.runtimeType}');
               }
+
+              if (toolCalls.isEmpty) throw Exception('No tool calls found in data');
+
+              final toolCall = toolCalls.first;
+              final functionCall = toolCall['function'];
+              if (functionCall == null || functionCall is! Map) throw Exception('Missing or invalid function data in tool call');
+
+              final functionName = functionCall['name'] as String?;
+              if (functionName == null || functionName.isEmpty) throw Exception('Missing or empty function name in tool call');
+
+              final dynamic argumentsData = functionCall['arguments'];
+              Map<String, dynamic> arguments;
+              if (argumentsData is String) {
+                arguments = jsonDecode(argumentsData) as Map<String, dynamic>;
+              } else if (argumentsData is Map) {
+                arguments = argumentsData.cast<String, dynamic>();
+              } else {
+                throw Exception('Invalid arguments format: Expected String or Map');
+              }
+
+              print('🔧 Parsed tool call: $functionName with args: $arguments');
+              _executeToolCall(functionName, arguments, messageIndex);
+
             } catch (e) {
-              throw Exception('Failed to parse function arguments: $e');
+              print('❌ Error processing tool call: $e');
+              if (mounted) {
+                setState(() {
+                  _messages[messageIndex] = _messages[messageIndex].copyWith(
+                    content: '❌ **Tool Call Error**\n\nFailed to process tool call: $e\n\nRaw data: `$toolCallBuffer`',
+                    isStreaming: false,
+                    hasError: true,
+                  );
+                  _isLoading = false;
+                });
+              }
             }
-            
-            print('🔧 Parsed arguments: $arguments');
-
-            // Enhanced tool call execution with proper error handling
-            await _executeToolCall(functionName, arguments, messageIndex);
-            
-          } catch (toolCallError) {
-            print('❌ Error processing tool call: $toolCallError');
-            setState(() {
-              _messages[messageIndex] = _messages[messageIndex].copyWith(
-                content: '❌ **Tool Call Error**\n\nFailed to process tool call: $toolCallError\n\nPlease try rephrasing your request.',
-                hasError: true,
-              );
-              _isLoading = false;
-            });
+          } else {
+            if (mounted && messageIndex < _messages.length) {
+              setState(() {
+                _messages[messageIndex] = _messages[messageIndex].copyWith(
+                  content: accumulatedContent,
+                  isStreaming: false,
+                );
+                if (modelIndex == totalModels - 1) {
+                  _isLoading = false;
+                }
+              });
+              ChatHistoryService.instance.saveMessage(
+                _messages[messageIndex],
+                modelName: model,
+              ).catchError((e) => print('Error saving assistant message: $e'));
+            }
           }
-          
-          // Exit the stream processing since we handled a tool call
-          break;
-
-        } else {
-          // Regular text chunk
-          accumulatedContent += chunk;
-          chunkCount++;
-          
-          if (chunkCount == 1) {
-            print('First chunk received: ${chunk.substring(0, chunk.length.clamp(0, 50))}...');
-          }
-          
+          completer.complete();
+        },
+        onError: (e) {
           if (mounted && messageIndex < _messages.length) {
             setState(() {
-              _messages[messageIndex] = _messages[messageIndex].copyWith(
-                content: accumulatedContent,
-                isStreaming: true,
+              _messages[messageIndex] = Message.error(
+                'Error from ${_formatModelName(model)}: Please try again.',
               );
-            });
-          } else {
-            print('Warning: Cannot update message - mounted: $mounted, messageIndex: $messageIndex, messages.length: ${_messages.length}');
-          }
-          
-          // Smooth auto-scroll during streaming
-          if (chunkCount % 2 == 0) {
-            // Use next frame for smoother updates
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Only auto-scroll if user hasn't manually scrolled away
-              if (_autoScrollEnabled && _scrollController.hasClients && !_userIsScrolling) {
-                // Animate to bottom for a smoother feel than jumpTo
-                _scrollController.animateTo(
-                  0.0,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                );
+              if (modelIndex == totalModels - 1) {
+                _isLoading = false;
               }
             });
           }
-        }
-      }
+          completer.completeError(e);
+        },
+      );
 
-      // Mark streaming as complete for regular text responses
-      print('Streaming complete. Total chunks: $chunkCount, Content length: ${accumulatedContent.length}');
-      
-      if (mounted && messageIndex < _messages.length) {
-        setState(() {
-          _messages[messageIndex] = _messages[messageIndex].copyWith(
-            content: accumulatedContent,
-            isStreaming: false,
-          );
-          
-          // Set loading to false when last model completes
-          if (modelIndex == totalModels - 1) {
-            _isLoading = false;
-          }
-        });
-        print('Message marked as complete at index: $messageIndex');
-        
-        // Save assistant message to history - don't await to avoid blocking
-        if (messageIndex < _messages.length) {
-          ChatHistoryService.instance.saveMessage(
-            _messages[messageIndex],
-            modelName: model,
-          ).catchError((e) {
-            print('Error saving assistant message: $e');
-          });
-        }
-      }
+      await completer.future;
     } catch (e) {
       if (mounted && messageIndex < _messages.length) {
         setState(() {
@@ -1916,11 +1878,9 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
     
     final imageService = ImageService.instance;
     
-    // Ensure models are loaded
     await imageService.loadModels();
     print('🎨 Available models: ${imageService.availableModels.map((m) => m.id).toList()}');
     
-    // Select model: user-specified > selected model > first available model
     String? model = arguments['model'] as String?;
     if (model == null || model.isEmpty) {
       model = imageService.selectedModel;
@@ -1929,21 +1889,15 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
       }
     }
     
-    print('🎨 Selected model: $model');
+    print('🎨 Selected model for tool call: $model');
     
-    // Validate model exists or use first available
     if (!imageService.availableModels.any((m) => m.id == model)) {
       if (imageService.hasModels) {
         model = imageService.availableModels.first.id;
         print('🎨 Model not found, using fallback: $model');
       } else {
-        // No models available, show error
         print('❌ No image generation models available');
-        final errorMessage = ImageMessage.error(
-          prompt,
-          'unknown',
-          'No image generation models available'
-        );
+        final errorMessage = ImageMessage.error(prompt, 'unknown', 'No image generation models available');
         setState(() {
           _messages[messageIndex] = errorMessage;
           _isLoading = false;
@@ -1952,21 +1906,28 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
       }
     }
 
-    print('🎨 Creating generating message with model: $model');
+    // Create a user message to represent the tool's action, for UI consistency
+    final userMessage = Message.user('Generate image: $prompt');
     
-    // Update the "thinking" message to an image generating message with proper UI
-    final generatingMessage = ImageMessage.generating(prompt, model!);
+    // Replace the original "thinking" message with this new user message
     setState(() {
-      _messages[messageIndex] = generatingMessage;
+      _messages[messageIndex] = userMessage;
+    });
+    ChatHistoryService.instance.saveMessage(userMessage).catchError((e) {
+      print('Error saving tool-triggered user message: $e');
     });
 
-    print('🎨 Calling _handleImageModelResponse...');
+    // Add a new "generating" image message, mimicking the manual flow
+    final generatingMessage = ImageMessage.generating(prompt, model!);
+    _addMessage(generatingMessage);
+
+    // The new message is at the end of the list. Call the response handler on it.
+    final newImageMessageIndex = _messages.length - 1;
+    print('🎨 Calling _handleImageModelResponse for tool-generated image at new index: $newImageMessageIndex');
+
+    await _handleImageModelResponse(prompt, model, newImageMessageIndex, 1, 0);
     
-    // Use the same image generation logic as the extension sheet
-    // Note: _handleImageModelResponse will handle setting _isLoading = false
-    await _handleImageModelResponse(prompt, model, messageIndex, 1, 0);
-    
-    print('🎨 Image generation tool completed');
+    print('🎨 Image generation tool UI unification completed');
   }
 
   /// Handle website browser tool call
