@@ -1307,17 +1307,9 @@ class _AboutBottomSheetState extends State<_AboutBottomSheet> {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: 'अहम्',
+                              text: 'AhamAI',
                               style: GoogleFonts.roboto(
                                 fontSize: 28,
-                                fontWeight: FontWeight.w500,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'AI',
-                              style: GoogleFonts.roboto(
-                                fontSize: 26,
                                 fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.primary,
                               ),

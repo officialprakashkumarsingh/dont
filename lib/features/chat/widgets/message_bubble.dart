@@ -28,6 +28,7 @@ import '../../../shared/widgets/presentation_preview.dart';
 import '../../../shared/widgets/chart_preview.dart';
 import '../../../shared/widgets/flashcard_preview.dart';
 import '../../../shared/widgets/quiz_preview.dart';
+import '../../../theme/providers/theme_provider.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -434,6 +435,19 @@ class _MessageBubbleState extends State<MessageBubble>
       return Theme.of(context).colorScheme.error.withOpacity(0.1);
     }
     if (isUser) {
+      // Get theme provider to check if we're using midnight theme
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final isDefaultTheme = themeProvider.selectedTheme.name == 'default';
+      final isMidnightTheme = themeProvider.selectedTheme.name == 'midnight';
+      final isDark = themeProvider.isDarkMode;
+      
+      // For midnight theme in dark mode OR default theme in dark mode (which uses midnight dark theme)
+      // Use the same grey color as profile avatar: primary.withOpacity(0.1)
+      if ((isMidnightTheme && isDark) || (isDefaultTheme && isDark)) {
+        return Theme.of(context).colorScheme.primary.withOpacity(0.1);
+      }
+      
+      // For all other themes, use the primary color
       return Theme.of(context).colorScheme.primary;
     }
     return Theme.of(context).colorScheme.surfaceVariant;
@@ -444,6 +458,19 @@ class _MessageBubbleState extends State<MessageBubble>
       return Theme.of(context).colorScheme.error;
     }
     if (isUser) {
+      // Get theme provider to check if we're using midnight theme
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final isDefaultTheme = themeProvider.selectedTheme.name == 'default';
+      final isMidnightTheme = themeProvider.selectedTheme.name == 'midnight';
+      final isDark = themeProvider.isDarkMode;
+      
+      // For midnight theme in dark mode OR default theme in dark mode (which uses midnight dark theme)
+      // Use onSurface color for better contrast with the grey background
+      if ((isMidnightTheme && isDark) || (isDefaultTheme && isDark)) {
+        return Theme.of(context).colorScheme.onSurface;
+      }
+      
+      // For all other themes, use onPrimary color
       return Theme.of(context).colorScheme.onPrimary;
     }
     return Theme.of(context).colorScheme.onSurfaceVariant;
@@ -1213,17 +1240,9 @@ class _ExportMessageWidget extends StatelessWidget {
                   text: TextSpan(
                     children: [
                       TextSpan(
-                        text: 'अहम्',
+                        text: 'AhamAI',
                         style: GoogleFonts.roboto(
                           fontSize: 24,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.onBackground,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'AI',
-                        style: GoogleFonts.roboto(
-                          fontSize: 22,
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.primary,
                         ),
