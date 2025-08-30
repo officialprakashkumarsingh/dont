@@ -104,17 +104,56 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           
           // Animated Triangle Logo
           Center(
-            child: AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: const Size(100, 100),
-                  painter: TrianglePainter(
-                    animation: _animationController.value,
-                    color: colorScheme.primary,
-                  ),
-                );
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      size: const Size(100, 100),
+                      painter: TrianglePainter(
+                        animation: _animationController.value,
+                        color: colorScheme.primary,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                // AhamAI Logo Text
+                AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _animationController.value,
+                      child: RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'अहम्',
+                              style: GoogleFonts.roboto(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.onSurface,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'AI',
+                              style: GoogleFonts.roboto(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],

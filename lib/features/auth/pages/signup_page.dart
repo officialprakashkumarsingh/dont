@@ -273,17 +273,17 @@ class _SignUpPageState extends State<SignUpPage> with TickerProviderStateMixin {
                               children: [
                                 TextSpan(
                                   text: 'अहम्',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.roboto(
                                     fontSize: 36,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                     color: theme.colorScheme.onBackground,
                                   ),
                                 ),
                                 TextSpan(
                                   text: 'AI',
-                                  style: GoogleFonts.inter(
+                                  style: GoogleFonts.roboto(
                                     fontSize: 34,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.primary,
                                   ),
                                 ),

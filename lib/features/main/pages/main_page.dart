@@ -153,18 +153,18 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                       children: [
                         TextSpan(
                           text: 'अहम्',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.roboto(
                             fontSize: 22,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             letterSpacing: 0.5,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         TextSpan(
                           text: 'AI',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.roboto(
                             fontSize: 20,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: -0.5,
                             color: Theme.of(context).colorScheme.primary,
                           ),

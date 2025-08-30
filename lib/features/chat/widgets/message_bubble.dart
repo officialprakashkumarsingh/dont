@@ -1214,17 +1214,17 @@ class _ExportMessageWidget extends StatelessWidget {
                     children: [
                       TextSpan(
                         text: 'अहम्',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.roboto(
                           fontSize: 24,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: theme.colorScheme.onBackground,
                         ),
                       ),
                       TextSpan(
                         text: 'AI',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.roboto(
                           fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: theme.colorScheme.primary,
                         ),
                       ),

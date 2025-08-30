@@ -468,6 +468,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildAnimatedMessage(Message message, int index, Animation<double> animation) {
+    // Calculate the actual message index in the array
+    final actualMessageIndex = _messages.length - 1 - index;
+    
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
@@ -480,15 +483,15 @@ class _ChatPageState extends State<ChatPage> {
           child: MessageBubble(
             message: message,
             modelName: ModelService.instance.selectedModel,
-            userMessage: message.type == MessageType.assistant && index > 0 && _messages[index - 1].type == MessageType.user
-                ? _messages[index - 1].content
+            userMessage: message.type == MessageType.assistant && actualMessageIndex > 0 && _messages[actualMessageIndex - 1].type == MessageType.user
+                ? _messages[actualMessageIndex - 1].content
                 : '',
             aiModel: ModelService.instance.selectedModel,
             onCopy: () => _copyMessage(message),
             onRegenerate: message.type == MessageType.assistant
-                ? () => _regenerateMessage(index)
+                ? () => _regenerateMessage(actualMessageIndex)
                 : null,
-            onExport: () => _exportMessage(message, index),
+            onExport: () => _exportMessage(message, actualMessageIndex),
           ),
         ),
       ),
