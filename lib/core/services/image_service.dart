@@ -172,6 +172,7 @@ class ImageService extends ChangeNotifier {
           'prompt': prompt,
           'model': model,
           'size': size,
+          'watermark': false,
         }),
       );
 

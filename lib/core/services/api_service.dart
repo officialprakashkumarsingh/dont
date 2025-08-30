@@ -278,7 +278,10 @@ class ApiService {
     required String url,
   }) async {
     try {
-      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$url';
+      // URL-encode the target URL to handle special characters safely
+      final encodedUrl = Uri.encodeComponent(url);
+      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$encodedUrl';
+
       final response = await http.get(
         Uri.parse(scraperUrl),
         headers: {
@@ -289,8 +292,10 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.body;
       }
+      // Return null on failure to allow the caller to handle it gracefully
       return null;
     } catch (e) {
+      // Also return null on exceptions
       return null;
     }
   }

@@ -2029,71 +2029,100 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
     });
 
     try {
-      print('🔍 Calling ApiService.searchWeb...');
+      // 1. Get search results
       final searchResults = await ApiService.searchWeb(query: query);
       
-      if (searchResults != null && searchResults['web'] != null) {
-        final webResults = searchResults['web']['results'] as List;
-        print('🔍 Search results found: ${webResults.length} results');
-        
-        if (webResults.isNotEmpty) {
-          // Format search results
-          String formattedResults = '🔍 **Web Search Results for: "$query"**\n\n';
-          
-          for (int i = 0; i < webResults.length && i < 10; i++) {
-            final result = webResults[i];
-            final title = result['title'] ?? 'No title';
-            final url = result['url'] ?? '';
-            final description = result['description'] ?? 'No description available';
-            
-            formattedResults += '**${i + 1}. $title**\n';
-            formattedResults += '$description\n';
-            if (url.isNotEmpty) {
-              formattedResults += '🔗 $url\n';
-            }
-            formattedResults += '\n';
-          }
-          
-          // Add summary footer
-          final totalResults = searchResults['web']['total_results'] ?? 0;
-          formattedResults += '---\n';
-          formattedResults += '*Found $totalResults total results. Showing top ${webResults.length.clamp(0, 10)} results.*';
-          
+      if (searchResults == null || searchResults['web']?['results'] == null || (searchResults['web']['results'] as List).isEmpty) {
+        print('🔍 No search results found or API failed.');
+        setState(() {
+          _messages[messageIndex] = _messages[messageIndex].copyWith(
+            content: '🔍 **No Search Results**\n\nI couldn\'t find any results for "$query". Please try a different search.',
+            isStreaming: false,
+            hasError: true,
+          );
+        });
+        return;
+      }
+
+      // 2. Format the results for the AI
+      final webResults = searchResults['web']['results'] as List;
+      String searchContext = 'Here are the top web search results for the query "$query":\n\n';
+      for (int i = 0; i < webResults.length && i < 7; i++) {
+        final result = webResults[i];
+        final title = result['title'] ?? 'No title';
+        final url = result['url'] ?? '';
+        final description = result['description'] ?? 'No description available';
+        searchContext += 'Source [${i + 1}]: $title\nURL: $url\nSnippet: $description\n\n';
+      }
+
+      // 3. Create the new prompt for the AI to synthesize an answer
+      String originalUserQuery = query;
+      if (messageIndex > 0 && _messages[messageIndex - 1].type == MessageType.user) {
+        originalUserQuery = _messages[messageIndex - 1].content;
+      }
+
+      final analysisPrompt = '''
+Based on the provided web search results, please provide a comprehensive answer to the user's original query: "$originalUserQuery".
+Synthesize the information from the sources into a coherent response. When you use information from a source, cite it using the source number, like [1], [2], etc.
+Do not just list the search results. Provide a direct and helpful answer.
+
+$searchContext
+''';
+
+      print('🔍 Sending search context to AI for synthesis...');
+
+      // 4. Send the context to the AI and stream the response
+      final analysisStream = await ApiService.sendMessage(
+        message: analysisPrompt,
+        model: ModelService.instance.selectedModel,
+        conversationHistory: [], // Start fresh, the context is in the prompt
+        systemPrompt: 'You are a helpful AI assistant that synthesizes web search results to answer user questions.',
+      );
+
+      String accumulatedAnswer = '🔍 **Answer based on web search for: "$query"**\n\n';
+
+      // Update the message with the streaming answer
+      await for (final chunk in analysisStream) {
+        if (chunk.startsWith('__TOOL_CALL__')) continue;
+        accumulatedAnswer += chunk;
+        if (mounted) {
           setState(() {
             _messages[messageIndex] = _messages[messageIndex].copyWith(
-              content: formattedResults,
-            );
-          });
-          print('🔍 Search results formatted and displayed');
-        } else {
-          print('🔍 No search results found');
-          setState(() {
-            _messages[messageIndex] = _messages[messageIndex].copyWith(
-              content: '🔍 **No Search Results**\n\nNo results found for: "$query"\n\nTry rephrasing your search query or using different keywords.',
+              content: accumulatedAnswer,
+              isStreaming: true,
             );
           });
         }
-      } else {
-        print('❌ Search API returned null or invalid response');
+      }
+
+      // 5. Finalize the message
+      if (mounted) {
         setState(() {
           _messages[messageIndex] = _messages[messageIndex].copyWith(
-            content: '❌ **Web Search Failed**\n\nUnable to search for: "$query"\n\nThe search service might be temporarily unavailable.',
+            content: accumulatedAnswer,
+            isStreaming: false,
           );
         });
       }
+      print('🔍 Web search synthesis completed.');
+
     } catch (e) {
-      print('❌ Web search error: $e');
-      setState(() {
-        _messages[messageIndex] = _messages[messageIndex].copyWith(
-          content: '❌ **Web Search Error**\n\nFailed to search for: "$query"\n\nError: $e',
-        );
-      });
+      print('❌ Web search tool error: $e');
+      if (mounted) {
+        setState(() {
+          _messages[messageIndex] = _messages[messageIndex].copyWith(
+            content: '❌ **Web Search Error**\n\nAn error occurred while processing the web search for: "$query"\n\nError: $e',
+            hasError: true,
+          );
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-    
-    // Set loading to false after web search completes
-    setState(() {
-      _isLoading = false;
-    });
   }
 
 }
