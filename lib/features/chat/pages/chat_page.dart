@@ -743,21 +743,25 @@ class _ChatPageState extends State<ChatPage> {
         print('Received chunk: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...');
         
         if (chunk.startsWith('__TOOL_CALL__')) {
-          print('Tool call detected! Processing...');
+          print('🔧 Tool call detected! Processing...');
           // This is a tool call, not a text response.
           final toolCallJson = chunk.substring('__TOOL_CALL__'.length);
-          print('Tool call JSON: $toolCallJson');
+          print('🔧 Tool call JSON: $toolCallJson');
           
           try {
             // Improved JSON parsing with better error handling
             final toolCallData = jsonDecode(toolCallJson);
+            print('🔧 Parsed tool call data: $toolCallData');
+            
             List<dynamic> toolCalls;
             
             // Handle both array and single object format
             if (toolCallData is List) {
               toolCalls = toolCallData;
+              print('🔧 Tool call data is a List with ${toolCalls.length} items');
             } else if (toolCallData is Map) {
               toolCalls = [toolCallData];
+              print('🔧 Tool call data is a Map, converted to List');
             } else {
               throw Exception('Invalid tool call format: expected List or Map, got ${toolCallData.runtimeType}');
             }
@@ -767,6 +771,8 @@ class _ChatPageState extends State<ChatPage> {
             }
             
             final toolCall = toolCalls.first; // Process first tool call
+            print('🔧 Processing first tool call: $toolCall');
+            
             final functionCall = toolCall['function'];
             if (functionCall == null) {
               throw Exception('Missing function data in tool call');
@@ -777,26 +783,29 @@ class _ChatPageState extends State<ChatPage> {
               throw Exception('Missing or empty function name');
             }
             
+            print('🔧 Function name: $functionName');
+            
             // Parse arguments with better error handling
             dynamic arguments;
             try {
               if (functionCall['arguments'] is String) {
+                print('🔧 Arguments are string, parsing JSON...');
                 arguments = jsonDecode(functionCall['arguments']);
               } else {
+                print('🔧 Arguments are already parsed object');
                 arguments = functionCall['arguments'];
               }
             } catch (e) {
               throw Exception('Failed to parse function arguments: $e');
             }
             
-            print('Function name: $functionName');
-            print('Arguments: $arguments');
+            print('🔧 Parsed arguments: $arguments');
 
             // Enhanced tool call execution with proper error handling
             await _executeToolCall(functionName, arguments, messageIndex);
             
           } catch (toolCallError) {
-            print('Error processing tool call: $toolCallError');
+            print('❌ Error processing tool call: $toolCallError');
             setState(() {
               _messages[messageIndex] = _messages[messageIndex].copyWith(
                 content: '❌ **Tool Call Error**\n\nFailed to process tool call: $toolCallError\n\nPlease try rephrasing your request.',
@@ -1845,24 +1854,37 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
 
   /// Enhanced tool call execution with proper error handling and robust implementation
   Future<void> _executeToolCall(String functionName, Map<String, dynamic> arguments, int messageIndex) async {
-    print('Executing tool call: $functionName with arguments: $arguments');
+    print('🔧 Executing tool call: $functionName with arguments: $arguments');
     
     try {
+      // Validate messageIndex
+      if (messageIndex >= _messages.length) {
+        throw Exception('Invalid message index: $messageIndex >= ${_messages.length}');
+      }
+      
+      // Set loading state immediately
+      setState(() {
+        _isLoading = true;
+      });
+      
       switch (functionName) {
         case 'generate_image':
+          print('🎨 Calling image generation tool...');
           await _handleImageGenerationTool(arguments, messageIndex);
           break;
           
         case 'website_browser':
+          print('🌐 Calling website browser tool...');
           await _handleWebsiteBrowserTool(arguments, messageIndex);
           break;
           
         case 'web_search':
+          print('🔍 Calling web search tool...');
           await _handleWebSearchTool(arguments, messageIndex);
           break;
           
         default:
-          print('Unknown tool call: $functionName');
+          print('❌ Unknown tool call: $functionName');
           setState(() {
             _messages[messageIndex] = _messages[messageIndex].copyWith(
               content: '❌ **Unknown Tool**\n\nTool "$functionName" is not supported.\n\nAvailable tools: Image Generation, Website Browser, Web Search',
@@ -1872,7 +1894,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
           });
       }
     } catch (e) {
-      print('Error executing tool call $functionName: $e');
+      print('❌ Error executing tool call $functionName: $e');
       setState(() {
         _messages[messageIndex] = _messages[messageIndex].copyWith(
           content: '❌ **Tool Execution Error**\n\nFailed to execute $functionName: $e\n\nPlease try again.',
@@ -1885,6 +1907,8 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
 
   /// Handle image generation tool call
   Future<void> _handleImageGenerationTool(Map<String, dynamic> arguments, int messageIndex) async {
+    print('🎨 Starting image generation tool with arguments: $arguments');
+    
     final prompt = arguments['prompt'] as String? ?? '';
     if (prompt.isEmpty) {
       throw Exception('Image prompt is required');
@@ -1894,6 +1918,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
     
     // Ensure models are loaded
     await imageService.loadModels();
+    print('🎨 Available models: ${imageService.availableModels.map((m) => m.id).toList()}');
     
     // Select model: user-specified > selected model > first available model
     String? model = arguments['model'] as String?;
@@ -1904,12 +1929,16 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
       }
     }
     
+    print('🎨 Selected model: $model');
+    
     // Validate model exists or use first available
     if (!imageService.availableModels.any((m) => m.id == model)) {
       if (imageService.hasModels) {
         model = imageService.availableModels.first.id;
+        print('🎨 Model not found, using fallback: $model');
       } else {
         // No models available, show error
+        print('❌ No image generation models available');
         final errorMessage = ImageMessage.error(
           prompt,
           'unknown',
@@ -1923,27 +1952,33 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
       }
     }
 
+    print('🎨 Creating generating message with model: $model');
+    
     // Update the "thinking" message to an image generating message with proper UI
     final generatingMessage = ImageMessage.generating(prompt, model!);
     setState(() {
       _messages[messageIndex] = generatingMessage;
     });
 
-    // Use the same image generation logic as the extension sheet
-    await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
+    print('🎨 Calling _handleImageModelResponse...');
     
-    // Set loading to false after image generation completes
-    setState(() {
-      _isLoading = false;
-    });
+    // Use the same image generation logic as the extension sheet
+    // Note: _handleImageModelResponse will handle setting _isLoading = false
+    await _handleImageModelResponse(prompt, model, messageIndex, 1, 0);
+    
+    print('🎨 Image generation tool completed');
   }
 
   /// Handle website browser tool call
   Future<void> _handleWebsiteBrowserTool(Map<String, dynamic> arguments, int messageIndex) async {
+    print('🌐 Starting website browser tool with arguments: $arguments');
+    
     final url = arguments['url'] as String? ?? '';
     if (url.isEmpty) {
       throw Exception('Website URL is required');
     }
+    
+    print('🌐 Browsing URL: $url');
     
     // Update the message to show website browsing in progress
     setState(() {
@@ -1953,11 +1988,16 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
     });
 
     try {
+      print('🌐 Calling ApiService.browseWebsite...');
       final websiteContent = await ApiService.browseWebsite(url: url);
       
       if (websiteContent != null && websiteContent.isNotEmpty) {
+        print('🌐 Website content retrieved, length: ${websiteContent.length}');
+        
         // Process the website content and provide a response
         final analysisPrompt = 'Please analyze and summarize the following website content from $url:\n\n$websiteContent';
+        
+        print('🌐 Sending content for analysis...');
         
         // Send the website content for analysis
         final analysisStream = await ApiService.sendMessage(
@@ -1972,6 +2012,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
         await for (final chunk in analysisStream) {
           if (chunk.startsWith('__TOOL_CALL__')) {
             // Skip nested tool calls in analysis
+            print('🌐 Skipping nested tool call in analysis');
             break;
           }
           analysisResult += chunk;
@@ -1984,7 +2025,9 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
             });
           }
         }
+        print('🌐 Website analysis completed');
       } else {
+        print('❌ Website content retrieval failed');
         setState(() {
           _messages[messageIndex] = _messages[messageIndex].copyWith(
             content: '❌ **Website Browsing Failed**\n\nUnable to browse content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
@@ -1992,6 +2035,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
         });
       }
     } catch (e) {
+      print('❌ Website browsing error: $e');
       setState(() {
         _messages[messageIndex] = _messages[messageIndex].copyWith(
           content: '❌ **Website Browsing Error**\n\nFailed to browse: $url\n\nError: $e',
@@ -2007,10 +2051,14 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
 
   /// Handle web search tool call
   Future<void> _handleWebSearchTool(Map<String, dynamic> arguments, int messageIndex) async {
+    print('🔍 Starting web search tool with arguments: $arguments');
+    
     final query = arguments['query'] as String? ?? '';
     if (query.isEmpty) {
       throw Exception('Search query is required');
     }
+    
+    print('🔍 Searching for: "$query"');
     
     // Update the message to show web search in progress
     setState(() {
@@ -2020,10 +2068,12 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
     });
 
     try {
+      print('🔍 Calling ApiService.searchWeb...');
       final searchResults = await ApiService.searchWeb(query: query);
       
       if (searchResults != null && searchResults['web'] != null) {
         final webResults = searchResults['web']['results'] as List;
+        print('🔍 Search results found: ${webResults.length} results');
         
         if (webResults.isNotEmpty) {
           // Format search results
@@ -2053,7 +2103,9 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
               content: formattedResults,
             );
           });
+          print('🔍 Search results formatted and displayed');
         } else {
+          print('🔍 No search results found');
           setState(() {
             _messages[messageIndex] = _messages[messageIndex].copyWith(
               content: '🔍 **No Search Results**\n\nNo results found for: "$query"\n\nTry rephrasing your search query or using different keywords.',
@@ -2061,6 +2113,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
           });
         }
       } else {
+        print('❌ Search API returned null or invalid response');
         setState(() {
           _messages[messageIndex] = _messages[messageIndex].copyWith(
             content: '❌ **Web Search Failed**\n\nUnable to search for: "$query"\n\nThe search service might be temporarily unavailable.',
@@ -2068,6 +2121,7 @@ Generate a comprehensive quiz on the topic. The correctAnswer is the index (0-3)
         });
       }
     } catch (e) {
+      print('❌ Web search error: $e');
       setState(() {
         _messages[messageIndex] = _messages[messageIndex].copyWith(
           content: '❌ **Web Search Error**\n\nFailed to search for: "$query"\n\nError: $e',
