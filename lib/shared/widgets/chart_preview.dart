@@ -44,6 +44,7 @@ class _ChartPreviewState extends State<ChartPreview> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
+      ..enableZoom(true)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {

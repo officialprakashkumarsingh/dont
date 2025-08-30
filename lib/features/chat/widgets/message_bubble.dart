@@ -1241,7 +1241,7 @@ class _ExportMessageWidget extends StatelessWidget {
                     children: [
                       TextSpan(
                         text: 'AhamAI',
-                        style: GoogleFonts.roboto(
+                        style: GoogleFonts.amaranth(
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.primary,

@@ -221,7 +221,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               children: [
                                 TextSpan(
                                   text: 'AhamAI',
-                                  style: GoogleFonts.roboto(
+                                  style: GoogleFonts.amaranth(
                                     fontSize: 36,
                                     fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.primary,

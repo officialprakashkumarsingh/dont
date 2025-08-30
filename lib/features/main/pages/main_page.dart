@@ -153,7 +153,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                       children: [
                         TextSpan(
                           text: 'AhamAI',
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.amaranth(
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,

@@ -102,49 +102,46 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
             child: Container(),
           ),
           
-          // Animated Triangle Logo
+          // Animated AhamAI Logo Text (replacing triangle)
           Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      size: const Size(100, 100),
-                      painter: TrianglePainter(
-                        animation: _animationController.value,
-                        color: colorScheme.primary,
+            child: AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: 0.8 + (_animationController.value * 0.2),
+                  child: Opacity(
+                    opacity: _animationController.value,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withOpacity(0.2 * _animationController.value),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                // AhamAI Logo Text
-                AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    return Opacity(
-                      opacity: _animationController.value,
                       child: RichText(
                         text: TextSpan(
                           children: [
                             TextSpan(
                               text: 'AhamAI',
-                              style: GoogleFonts.roboto(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w600,
+                              style: GoogleFonts.amaranth(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w700,
                                 color: colorScheme.primary,
-                                letterSpacing: 0.5,
+                                letterSpacing: 1.0,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -153,128 +150,6 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
   }
 }
 
-class TrianglePainter extends CustomPainter {
-  final double animation;
-  final Color color;
-
-  TrianglePainter({required this.animation, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Create a more stylish triangle with gradient and shadow
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Add a subtle shadow for depth
-    final shadowPaint = Paint()
-      ..color = color.withOpacity(0.2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-
-    final path = Path();
-    final shadowPath = Path();
-
-    // Define the three points of the triangle (more aesthetically pleasing proportions)
-    final p1 = Offset(size.width / 2, size.height * 0.1); // Top point slightly lower
-    final p2 = Offset(size.width * 0.85, size.height * 0.9); // Bottom-right
-    final p3 = Offset(size.width * 0.15, size.height * 0.9); // Bottom-left
-
-    // Calculate the total length of the triangle perimeter
-    final l1 = (p2 - p1).distance; // top to bottom-right
-    final l2 = (p3 - p2).distance; // bottom-right to bottom-left
-    final l3 = (p1 - p3).distance; // bottom-left to top
-
-    final totalLength = l1 + l2 + l3;
-
-    // Determine how much of the path to draw based on animation
-    final animatedLength = animation * totalLength;
-
-    // Build the animated path
-    // Draw first side (p1 to p2)
-    if (animatedLength > 0) {
-      final progress = (animatedLength.clamp(0, l1) / l1);
-      final endPoint = p1 + (p2 - p1) * progress;
-      path.moveTo(p1.dx, p1.dy);
-      path.lineTo(endPoint.dx, endPoint.dy);
-      
-      // Shadow path
-      shadowPath.moveTo(p1.dx, p1.dy);
-      shadowPath.lineTo(endPoint.dx, endPoint.dy);
-    }
-
-    // Draw second side (p2 to p3)
-    if (animatedLength > l1) {
-      final lengthOnSide2 = (animatedLength - l1).clamp(0, l2);
-      final progress = lengthOnSide2 / l2;
-      final endPoint = p2 + (p3 - p2) * progress;
-      path.moveTo(p2.dx, p2.dy);
-      path.lineTo(endPoint.dx, endPoint.dy);
-      
-      // Shadow path
-      shadowPath.moveTo(p2.dx, p2.dy);
-      shadowPath.lineTo(endPoint.dx, endPoint.dy);
-    }
-
-    // Draw third side (p3 to p1)
-    if (animatedLength > l1 + l2) {
-      final lengthOnSide3 = (animatedLength - l1 - l2).clamp(0, l3);
-      final progress = lengthOnSide3 / l3;
-      final endPoint = p3 + (p1 - p3) * progress;
-      path.moveTo(p3.dx, p3.dy);
-      path.lineTo(endPoint.dx, endPoint.dy);
-      
-      // Shadow path
-      shadowPath.moveTo(p3.dx, p3.dy);
-      shadowPath.lineTo(endPoint.dx, endPoint.dy);
-    }
-
-    // Draw shadow first (behind the main triangle)
-    canvas.drawPath(shadowPath, shadowPaint);
-    
-    // Create gradient effect for the main triangle
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        color,
-        color.withOpacity(0.7),
-      ],
-    );
-    
-    paint.shader = gradient.createShader(rect);
-    
-    // Draw the main triangle
-    canvas.drawPath(path, paint);
-    
-    // Add a subtle inner glow effect when animation is complete
-    if (animation > 0.95) {
-      final glowPaint = Paint()
-        ..color = color.withOpacity(0.1)
-        ..style = PaintingStyle.fill;
-      
-      // Create a complete triangle path for the glow
-      final glowPath = Path()
-        ..moveTo(p1.dx, p1.dy)
-        ..lineTo(p2.dx, p2.dy)
-        ..lineTo(p3.dx, p3.dy)
-        ..close();
-      
-      canvas.drawPath(glowPath, glowPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant TrianglePainter oldDelegate) {
-    return animation != oldDelegate.animation || color != oldDelegate.color;
-  }
-}
 
 // Custom painter for dotted pattern background
 class DottedPatternPainter extends CustomPainter {
