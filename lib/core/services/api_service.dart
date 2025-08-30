@@ -183,6 +183,8 @@ class ApiService {
         ]
       };
 
+      print('🔧 API: Sending request with ${requestBody['tools']?.length ?? 0} tools available');
+      
       final request = http.Request(
         'POST',
         Uri.parse('$baseUrl/v1/chat/completions'),
@@ -225,6 +227,7 @@ class ApiService {
                 // The API is asking to use a tool.
                 // We'll encode this as a special string and handle it on the client.
                 final toolCalls = jsonEncode(delta['tool_calls']);
+                print('🔧 API: Tool call detected in response: $toolCalls');
                 controller.add('__TOOL_CALL__$toolCalls');
               }
             } catch (e) {
