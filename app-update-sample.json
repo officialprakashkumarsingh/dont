@@ -1,0 +1,19 @@
+{
+  "latest_version": "1.2.0",
+  "download_url": "https://github.com/officialprakashkumarsingh/ahamai-landingpage/releases/download/v1.2.0/ahamai_v1.2.0.apk",
+  "force_update": false,
+  "release_date": "2024-01-15",
+  "file_size_mb": 25,
+  "improvements": [
+    "Added file upload support for PDF, ZIP, and 30+ text formats",
+    "Improved image analysis with streaming responses",
+    "Enhanced code block rendering with terminal-style UI",
+    "Added web search integration for real-time information",
+    "Fixed keyboard focus issues in search",
+    "Optimized performance and reduced app size",
+    "Added support for multiple file selection",
+    "Improved UI with borderless design elements"
+  ],
+  "min_supported_version": "1.0.0",
+  "changelog_url": "https://github.com/officialprakashkumarsingh/ahamai-landingpage/blob/main/CHANGELOG.md"
+}
