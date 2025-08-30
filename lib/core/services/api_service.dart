@@ -192,7 +192,7 @@ class ApiService {
   // Generate image (if supported by your API)
   static Future<String?> generateImage({
     required String prompt,
-    String model = 'flux',
+    required String model,
   }) async {
     try {
       final response = await http.post(

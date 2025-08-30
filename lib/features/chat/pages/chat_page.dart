@@ -753,14 +753,44 @@ class _ChatPageState extends State<ChatPage> {
           if (functionName == 'generate_image') {
             final prompt = arguments['prompt'] as String;
             final imageService = ImageService.instance;
-            final model = arguments['model'] as String? ?? imageService.selectedModel;
+            
+            // Ensure models are loaded
+            await imageService.loadModels();
+            
+            // Select model: user-specified > selected model > first available model
+            String? model = arguments['model'] as String?;
+            if (model == null || model.isEmpty) {
+              model = imageService.selectedModel;
+              if (model.isEmpty && imageService.hasModels) {
+                model = imageService.availableModels.first.id;
+              }
+            }
+            
+            // Validate model exists or use first available
+            if (!imageService.availableModels.any((m) => m.id == model)) {
+              if (imageService.hasModels) {
+                model = imageService.availableModels.first.id;
+              } else {
+                // No models available, show error
+                final errorMessage = ImageMessage.error(
+                  prompt,
+                  'unknown',
+                  'No image generation models available'
+                );
+                setState(() {
+                  _messages[messageIndex] = errorMessage;
+                  _isLoading = false;
+                });
+                break;
+              }
+            }
 
             // Update the "thinking" message to an image generating message
             setState(() {
-              _messages[messageIndex] = ImageMessage.generating(prompt, model);
+              _messages[messageIndex] = ImageMessage.generating(prompt, model!);
             });
 
-            await _handleImageModelResponse(prompt, model, messageIndex, 1, 0);
+            await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
 
           }
           // Since a tool was called, we break the loop for this model's response.
@@ -1083,12 +1113,20 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _handleImageGeneration(String prompt) async {
     final imageService = ImageService.instance;
     
+    // Ensure models are loaded
+    await imageService.loadModels();
+    
     // Determine which image models to use
     List<String> modelsToUse;
     if (imageService.multipleModelsEnabled && imageService.selectedModels.isNotEmpty) {
       modelsToUse = imageService.selectedModels;
     } else {
-      modelsToUse = [imageService.selectedModel];
+      // Use selected model or first available model
+      String selectedModel = imageService.selectedModel;
+      if (selectedModel.isEmpty && imageService.hasModels) {
+        selectedModel = imageService.availableModels.first.id;
+      }
+      modelsToUse = [selectedModel];
     }
     
     if (prompt.trim().isEmpty || modelsToUse.isEmpty || modelsToUse.first.isEmpty) return;
