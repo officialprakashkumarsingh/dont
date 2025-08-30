@@ -183,7 +183,7 @@ class ApiService {
         ]
       };
 
-      print('🔧 API: Sending request with ${requestBody['tools']?.length ?? 0} tools available');
+      print('🔧 API: Sending request with ${(requestBody['tools'] as List?)?.length ?? 0} tools available');
       
       final request = http.Request(
         'POST',
