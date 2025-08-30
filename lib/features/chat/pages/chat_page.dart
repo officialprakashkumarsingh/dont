@@ -792,6 +792,62 @@ class _ChatPageState extends State<ChatPage> {
 
             await _handleImageModelResponse(prompt, model!, messageIndex, 1, 0);
 
+          } else if (functionName == 'web_scrape') {
+            final url = arguments['url'] as String;
+            
+            // Update the message to show web scraping in progress
+            setState(() {
+              _messages[messageIndex] = _messages[messageIndex].copyWith(
+                content: '🔍 Scraping web page: $url\n\nPlease wait...',
+              );
+            });
+
+            try {
+              final scrapedContent = await ApiService.scrapeWebPage(url: url);
+              
+              if (scrapedContent != null && scrapedContent.isNotEmpty) {
+                // Process the scraped content and provide a response
+                final analysisPrompt = 'Please analyze and summarize the following web page content from $url:\n\n$scrapedContent';
+                
+                // Send the scraped content for analysis
+                final analysisStream = await ApiService.sendMessage(
+                  message: analysisPrompt,
+                  model: ModelService.instance.selectedModel,
+                  conversationHistory: [],
+                  systemPrompt: 'You are analyzing web page content. Provide a clear, structured summary and analysis of the content.',
+                );
+
+                String analysisResult = '📄 **Web Page Analysis: $url**\n\n';
+                
+                await for (final chunk in analysisStream) {
+                  if (chunk.startsWith('__TOOL_CALL__')) {
+                    // Skip nested tool calls in analysis
+                    break;
+                  }
+                  analysisResult += chunk;
+                  
+                  if (mounted && messageIndex < _messages.length) {
+                    setState(() {
+                      _messages[messageIndex] = _messages[messageIndex].copyWith(
+                        content: analysisResult,
+                      );
+                    });
+                  }
+                }
+              } else {
+                setState(() {
+                  _messages[messageIndex] = _messages[messageIndex].copyWith(
+                    content: '❌ **Web Scraping Failed**\n\nUnable to scrape content from: $url\n\nThe website might be blocking automated access or the URL might be invalid.',
+                  );
+                });
+              }
+            } catch (e) {
+              setState(() {
+                _messages[messageIndex] = _messages[messageIndex].copyWith(
+                  content: '❌ **Web Scraping Error**\n\nFailed to scrape: $url\n\nError: $e',
+                );
+              });
+            }
           }
           // Since a tool was called, we break the loop for this model's response.
           break;

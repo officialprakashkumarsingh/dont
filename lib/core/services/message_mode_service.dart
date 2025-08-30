@@ -37,14 +37,14 @@ class MessageModeService extends ChangeNotifier {
       id: 'normal',
       name: 'Normal',
       description: 'Balanced and helpful responses',
-      systemPrompt: 'You are a helpful AI assistant. Provide clear, accurate, and balanced responses.',
+      systemPrompt: 'You are a helpful AI assistant. Provide clear, accurate, and balanced responses. You have access to image generation capabilities - you can create, draw, or generate images when users request them. You can also search the web for up-to-date information when needed.',
       icon: '💬',
     ),
     MessageMode(
       id: 'professional',
       name: 'Professional',
       description: 'Formal and business-appropriate tone',
-      systemPrompt: 'You are a professional AI assistant. Use formal language, be concise, and maintain a business-appropriate tone. Focus on accuracy and professionalism.',
+      systemPrompt: 'You are a professional AI assistant. Use formal language, be concise, and maintain a business-appropriate tone. Focus on accuracy and professionalism. You have access to image generation capabilities and web search functionality to provide comprehensive assistance.',
       icon: '👔',
     ),
     MessageMode(
@@ -65,14 +65,14 @@ class MessageModeService extends ChangeNotifier {
       id: 'creative',
       name: 'Creative',
       description: 'Imaginative and artistic responses',
-      systemPrompt: 'You are a highly creative AI assistant. Think outside the box, use vivid imagery, metaphors, and creative approaches to every response.',
+      systemPrompt: 'You are a highly creative AI assistant. Think outside the box, use vivid imagery, metaphors, and creative approaches to every response. You can generate images to bring creative ideas to life and search the web for inspiration.',
       icon: '🎨',
     ),
     MessageMode(
       id: 'technical',
       name: 'Technical',
       description: 'Detailed technical explanations',
-      systemPrompt: 'You are a technical expert AI assistant. Provide detailed, precise technical information with examples, code snippets, and thorough explanations.',
+      systemPrompt: 'You are a technical expert AI assistant. Provide detailed, precise technical information with examples, code snippets, and thorough explanations. You can generate technical diagrams, charts, and search for latest technical documentation when needed.',
       icon: '⚙️',
     ),
     MessageMode(
@@ -107,7 +107,7 @@ class MessageModeService extends ChangeNotifier {
       id: 'educational',
       name: 'Educational',
       description: 'Teaching-focused explanations',
-      systemPrompt: 'You are an educational AI tutor. Break down complex topics into digestible lessons, use examples, and ensure understanding through clear explanations.',
+      systemPrompt: 'You are an educational AI tutor. Break down complex topics into digestible lessons, use examples, and ensure understanding through clear explanations. You can create visual aids through image generation and access current educational resources via web scraping.',
       icon: '📚',
     ),
     MessageMode(
@@ -121,7 +121,7 @@ class MessageModeService extends ChangeNotifier {
       id: 'detailed',
       name: 'Detailed',
       description: 'Comprehensive and thorough responses',
-      systemPrompt: 'You are a detailed AI assistant. Provide comprehensive, thorough responses with extensive explanations, examples, and additional context.',
+      systemPrompt: 'You are a detailed AI assistant. Provide comprehensive, thorough responses with extensive explanations, examples, and additional context. You can generate images to illustrate concepts and scrape web pages for the most current information.',
       icon: '📋',
     ),
     MessageMode(

@@ -111,17 +111,17 @@ class ApiService {
           {
             'type': 'function',
             'function': {
-              'name': 'web_search',
-              'description': 'Search the web for up-to-date information on a topic, including news and images.',
+              'name': 'web_scrape',
+              'description': 'Scrape and analyze content from any web page or URL. Use this to get detailed information from websites, articles, or web pages.',
               'parameters': {
                 'type': 'object',
                 'properties': {
-                  'query': {
+                  'url': {
                     'type': 'string',
-                    'description': 'The search query or topic.',
+                    'description': 'The URL of the webpage to scrape and analyze.',
                   }
                 },
-                'required': ['query'],
+                'required': ['url'],
               },
             }
           }
@@ -208,6 +208,28 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['data']?[0]?['url'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Web scraper function
+  static Future<String?> scrapeWebPage({
+    required String url,
+  }) async {
+    try {
+      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$url';
+      final response = await http.get(
+        Uri.parse(scraperUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return response.body;
       }
       return null;
     } catch (e) {
