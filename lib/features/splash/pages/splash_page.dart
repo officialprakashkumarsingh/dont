@@ -90,96 +90,34 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     
     return Scaffold(
       backgroundColor: colorScheme.background,
-      body: Stack(
-        children: [
-          // Dotted pattern background
-          CustomPaint(
-            painter: DottedPatternPainter(
-              dotColor: colorScheme.onSurface.withOpacity(0.05),
-              spacing: 20,
-              dotRadius: 1.5,
-            ),
-            child: Container(),
-          ),
-          
-          // Animated AhamAI Logo Text (replacing triangle)
-          Center(
-            child: AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: 0.8 + (_animationController.value * 0.2),
-                  child: Opacity(
-                    opacity: _animationController.value,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.2 * _animationController.value),
-                            blurRadius: 20,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'AhamAI',
-                              style: GoogleFonts.amaranth(
-                                fontSize: 48,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.primary,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ],
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 0.8 + (_animationController.value * 0.2),
+              child: Opacity(
+                opacity: _animationController.value,
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AhamAI',
+                        style: GoogleFonts.amaranth(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                          letterSpacing: 1.0,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
-  }
-}
-
-
-// Custom painter for dotted pattern background
-class DottedPatternPainter extends CustomPainter {
-  final Color dotColor;
-  final double spacing;
-  final double dotRadius;
-
-  DottedPatternPainter({
-    required this.dotColor,
-    required this.spacing,
-    required this.dotRadius,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = dotColor
-      ..style = PaintingStyle.fill;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotRadius, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(DottedPatternPainter oldDelegate) {
-    return dotColor != oldDelegate.dotColor ||
-        spacing != oldDelegate.spacing ||
-        dotRadius != oldDelegate.dotRadius;
   }
 }
