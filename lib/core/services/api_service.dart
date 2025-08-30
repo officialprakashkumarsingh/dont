@@ -124,66 +124,9 @@ class ApiService {
         'messages': messages,
         'stream': true,
         'temperature': 0.7,
-        'tools': [
-          {
-            'type': 'function',
-            'function': {
-              'name': 'generate_image',
-              'description': 'Generate, create, draw, or make any type of image, photo, artwork, diagram, or visual content based on a user prompt. Use this whenever users ask for visual content, images, pictures, drawings, artwork, photos, designs, or any visual representation.',
-              'parameters': {
-                'type': 'object',
-                'properties': {
-                  'prompt': {
-                    'type': 'string',
-                    'description': 'A detailed description of the image to generate, including style, colors, composition, and any specific details.',
-                  },
-                  'model': {
-                    'type': 'string',
-                    'description': 'The specific model to use for generation, if the user requests one (e.g., "DALL-E", "Stable Diffusion", "Midjourney").',
-                  }
-                },
-                'required': ['prompt'],
-              },
-            }
-          },
-          {
-            'type': 'function',
-            'function': {
-              'name': 'website_browser',
-              'description': 'Browse, access, and analyze content from any website, URL, or web page. Use this when users mention URLs, ask about websites, need current information from the web, want to check a specific site, or need real-time data from the internet.',
-              'parameters': {
-                'type': 'object',
-                'properties': {
-                  'url': {
-                    'type': 'string',
-                    'description': 'The complete URL of the website to browse and analyze (e.g., "https://example.com").',
-                  }
-                },
-                'required': ['url'],
-              },
-            }
-          },
-          {
-            'type': 'function',
-            'function': {
-              'name': 'web_search',
-              'description': 'Search the web for current information, news, facts, or any query that requires up-to-date information from the internet. Use this when users ask questions that need current information, want to search for something, or need recent data.',
-              'parameters': {
-                'type': 'object',
-                'properties': {
-                  'query': {
-                    'type': 'string',
-                    'description': 'The search query to find information on the web.',
-                  }
-                },
-                'required': ['query'],
-              },
-            }
-          }
-        ]
       };
 
-      print('🔧 API: Sending request with ${(requestBody['tools'] as List?)?.length ?? 0} tools available');
+      print('🔧 API: Sending request without tools.');
       
       final request = http.Request(
         'POST',
@@ -278,10 +221,7 @@ class ApiService {
     required String url,
   }) async {
     try {
-      // URL-encode the target URL to handle special characters safely
-      final encodedUrl = Uri.encodeComponent(url);
-      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$encodedUrl';
-
+      final scraperUrl = 'https://scrap.ytansh038.workers.dev/?url=$url';
       final response = await http.get(
         Uri.parse(scraperUrl),
         headers: {
@@ -292,10 +232,8 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.body;
       }
-      // Return null on failure to allow the caller to handle it gracefully
       return null;
     } catch (e) {
-      // Also return null on exceptions
       return null;
     }
   }

@@ -26,27 +26,8 @@ class MessageModeService extends ChangeNotifier {
   String get customSystemPrompt => _customSystemPrompt;
   
   String get effectiveSystemPrompt {
-    String basePrompt;
-    if (_customSystemPrompt.isNotEmpty) {
-      basePrompt = _customSystemPrompt;
-    } else {
-      basePrompt = _selectedMode?.systemPrompt ?? '';
-    }
-
-    // Get the current time in UTC and format it
-    final now = DateTime.now().toUtc();
-    final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
-    final formattedDate = formatter.format(now);
-
-    // Prepend the current date and time to the system prompt
-    final timeInfo = 'Current date and time is $formattedDate UTC.';
-
-    // Return the combined prompt, ensuring there's a clear separation.
-    if (basePrompt.isEmpty) {
-      return timeInfo;
-    }
-
-    return '$timeInfo\n\n$basePrompt';
+    // Per user request, the system prompt is now disabled.
+    return '';
   }
 
   // Built-in message modes
