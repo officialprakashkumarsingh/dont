@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -10,9 +9,9 @@ class ApiService {
   static DateTime _lastKeyRotation = DateTime.now();
   
   static Map<String, String> get headers {
-    final apiKey = dotenv.env['API_KEY'];
-    if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('API_KEY not found in environment variables. Please set it in the .env file.');
+    const apiKey = String.fromEnvironment('API_KEY');
+    if (apiKey.isEmpty) {
+      throw Exception('API_KEY is not set. Please provide it at compile time using --dart-define=API_KEY=YOUR_KEY');
     }
     return {
       'Content-Type': 'application/json',
@@ -22,9 +21,9 @@ class ApiService {
 
   /// Get Brave Search API keys from environment and rotate them
   static List<String> get _braveApiKeys {
-    final keysString = dotenv.env['BRAVE_API_KEYS'] ?? '';
+    const keysString = String.fromEnvironment('BRAVE_API_KEYS');
     if (keysString.isEmpty) {
-      throw Exception('BRAVE_API_KEYS not found in environment variables.');
+      throw Exception('BRAVE_API_KEYS is not set. Please provide it at compile time using --dart-define=BRAVE_API_KEYS=KEY1,KEY2');
     }
     return keysString.split(',').where((key) => key.trim().isNotEmpty).toList();
   }

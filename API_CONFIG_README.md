@@ -1,55 +1,58 @@
-# API Configuration Setup
+# API Configuration Setup (Secure Method)
 
-## How to Configure Your API Key
+The AhamAI app uses compile-time variables to securely manage API keys. This is a more secure method than using a `.env` file, as the keys are compiled directly into the application and not stored as plain-text files in the app's assets.
 
-The AhamAI app uses environment variables to securely manage the API key. This approach ensures that your API key is NOT exposed in the compiled code.
+## How to Configure Your API Keys
 
-### Step 1: Setup the .env File
+You must provide your API keys during the build or run process using the `--dart-define` flag.
 
-The `.env` file in the root directory contains:
-```
-API_KEY=YOUR_API_KEY_HERE
-```
+### Required Keys
 
-### Step 2: Add Your API Key
+-   `API_KEY`: Your main key for the AhamAI backend.
+-   `BRAVE_API_KEYS`: A comma-separated list of one or more keys for the Brave Search API.
 
-Replace `YOUR_API_KEY_HERE` with your actual API key:
-```
-API_KEY=ahamaipriv05
-```
+### For Running in Debug Mode
 
-### Step 3: Security Benefits
+To run the app for development (e.g., in VS Code or Android Studio, or with `flutter run`), you need to configure the `--dart-define` arguments.
 
-**Why use .env files?**
-- ✅ **API key is NOT compiled into the app binary**
-- ✅ **Cannot be extracted by decompiling the APK/IPA**
-- ✅ **Loaded at runtime from the asset bundle**
-- ✅ **Easy to manage different keys for dev/prod**
+**Example for `flutter run`:**
 
-### For Production Deployment
-
-1. **Before building for production:**
-   - Update `.env` with your production API key
-   - Build the app: `flutter build apk --release`
-
-2. **For open source projects:**
-   - Uncomment `.env` in `.gitignore` to prevent committing real keys
-   - Use `.env.example` as a template for other developers
-   - Each developer creates their own `.env` file locally
-
-### Example File
-
-A template is provided at `.env.example`:
-```
-API_KEY=ahamaipriv05
+```bash
+flutter run --dart-define=API_KEY=your_main_api_key_here --dart-define=BRAVE_API_KEYS=your_brave_key_1,your_brave_key_2
 ```
 
-## Important Security Notes
+**Example for VS Code:**
 
-- The `.env` file is included in the app's assets but is NOT readable by decompiling
-- The key is loaded at runtime using `flutter_dotenv`
-- This is much more secure than hardcoding in Dart files
-- For maximum security in production, consider using:
-  - Platform-specific secure storage (iOS Keychain, Android Keystore)
-  - Remote configuration services
-  - Certificate pinning for API calls
+Create or edit the `.vscode/launch.json` file in your project and add the `args` to your configuration:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AhamAI",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define=API_KEY=your_main_api_key_here",
+                "--dart-define=BRAVE_API_KEYS=your_brave_key_1,your_brave_key_2"
+            ]
+        }
+    ]
+}
+```
+
+### For Building a Release APK
+
+When you build the final application, you must include the same flags.
+
+```bash
+flutter build apk --dart-define=API_KEY=your_main_api_key_here --dart-define=BRAVE_API_KEYS=your_brave_key_1,your_brave_key_2
+```
+
+### Security Benefits
+
+-   ✅ **Keys are NOT stored in plain text** in the app's assets.
+-   ✅ **Cannot be easily extracted** by simply decompiling the APK to view asset files.
+-   ✅ Keys are only available at runtime as Dart constants.
+-   ✅ This is the recommended approach for handling sensitive keys in a production Flutter application.
